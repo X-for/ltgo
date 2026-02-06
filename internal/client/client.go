@@ -70,7 +70,8 @@ func (c *Client) enhanceRequest(req *http.Request) {
 	if c.cfg.Cookie != "" {
 		req.Header.Set("Cookie", c.cfg.Cookie)
 	}
-	req.Header.Set("Referer", c.BaseURL+"/problemset/all/")
+	req.Header.Set("Referer", c.BaseURL)
+	req.Header.Set("Origin", c.BaseURL)
 	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
 }
 
