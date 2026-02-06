@@ -17,7 +17,7 @@ type Config struct {
 }
 
 
-func getConfigPath() map[string]string {
+func getConfigPath() (string, error) {
 	path = os.UserHomeDir()
 	dir, err := os.ReadDir(path + ".ltgo")
 	if err != nil {
@@ -36,6 +36,7 @@ func getConfigPath() map[string]string {
 			log.Fetal(err)
 		}
 	}
+	return file, nil
 }
 
 func Load(
