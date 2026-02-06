@@ -6,6 +6,7 @@ import (
 
 	"github.com/X-for/ltgo/internal/client"
 	"github.com/X-for/ltgo/internal/config"
+	"github.com/X-for/ltgo/internal/generator"
 )
 
 func main() {
@@ -50,7 +51,11 @@ difficulty
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Title: %s (%s)\n", q.Title, q.Difficulty)
+	//fmt.Printf("Title: %s (%s)\n", q.Title, q.Difficulty)
+
+	if generator.Generate(q, "./questions") != nil {
+		log.Fatal(err)
+	}
 
 	// 寻找 Go 语言的模板
 	var goCode string
