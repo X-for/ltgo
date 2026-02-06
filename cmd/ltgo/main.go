@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/X-for/ltgo/internal/client"
 	// 这里的路径必须和你 go.mod 里的 module 名字对应
 	"github.com/X-for/ltgo/internal/config"
 )
@@ -28,4 +29,13 @@ func main() {
 	}
 
 	fmt.Println("Config saved successfully!")
+
+	lc := client.New(cfg) // 创建客户端
+
+	// 尝试访问一下主页 (不用认证也能访问)
+	body, err := lc.Get("/")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Response size: %d bytes\n", len(body))
 }

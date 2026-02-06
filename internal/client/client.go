@@ -29,7 +29,8 @@ func New(cfg *config.Config) *Client {
 	}
 }
 
-func (c *Client) Get(url string) ([]byte, error) {
+func (c *Client) Get(path string) ([]byte, error) {
+	url := c.BaseURL + path
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,8 @@ func (c *Client) Get(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func (c *Client) Post(url string, body []byte) ([]byte, error) {
+func (c *Client) Post(path string, body []byte) ([]byte, error) {
+	url := c.BaseURL + path
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
