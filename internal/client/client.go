@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"fmt"
 
 	"github.com/X-for/ltgo/internal/config"
 )
@@ -91,10 +92,12 @@ func (c *Client) GraphQL(query string, variables interface{}, target interface{}
 
 	// 2. 发送 POST 请求 (注意：GraphQL 的 Endpoint 通常是 /graphql)
 	// 如果是 .cn 站点，可能是 /graphql/
-	respBody, err := c.Post("/graphql", body)
+	respBody, err := c.Post("/graphql/", body)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("DEBUG:", string(respBody))
 
 	// 3. 解析响应
 	if err := json.Unmarshal(respBody, target); err != nil {

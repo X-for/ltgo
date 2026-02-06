@@ -1,41 +1,41 @@
 package main
 
 import (
-	"fmt"
-	"log"
+    "fmt"
+    "log"
 
-	"github.com/X-for/ltgo/internal/client"
-	// 这里的路径必须和你 go.mod 里的 module 名字对应
-	"github.com/X-for/ltgo/internal/config"
+    "github.com/X-for/ltgo/internal/client"
+    "github.com/X-for/ltgo/internal/config"
 )
 
 func main() {
-	// 1. 加载配置 (使用 Load 方法)
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err) // 遇到错误直接打印并退出
-	}
+    cfg, _ := config.Load()
+    // 强制设置 site 为 cn 确保环境
+    cfg.Site = "cn"
+    lc := client.New(cfg)
 
-	// 2. 打印读取到的信息
-	fmt.Printf("Current Site: %s\n", cfg.Site)
-	fmt.Printf("Current Language: %s\n", cfg.Language)
-	fmt.Printf("Old Cookie: %s\n", cfg.Cookie)
+    // 这个 Query 专门获取题目详情，不需要登录也能拿
+    query := `
+    query questionData($titleSlug: String!) {
+        question(titleSlug: $titleSlug) {
+            questionId
+            title
+difficulty
+        }
+    }`
 
-	// 3. 修改配置并保存
-	cfg.Cookie = "test-cookie-updated-" + cfg.Language
-	err = cfg.Save()
-	if err != nil {
-		log.Fatal("Failed to save config:", err)
-	}
+    vars := map[string]interface{}{
+        "titleSlug": "two-sum",
+    }
 
-	fmt.Println("Config saved successfully!")
+    // 使用 map[string]interface{} 来接收任意结构的响应，避免 struct 定义错误导致解析失败
+    var resp map[string]interface{}
 
-	lc := client.New(cfg) // 创建客户端
+    fmt.Println("Sending request to LeetCode CN...")
+    err := lc.GraphQL(query, vars, &resp)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	// 尝试访问一下主页 (不用认证也能访问)
-	body, err := lc.Get("/")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Response size: %d bytes\n", len(body))
+    // 此时 client.go 里的调试打印会把原始 JSON 吐出来
 }
