@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/X-for/ltgo/internal/models"
 )
+
+// getBestContent default Chinese, then English
+func getBestContent(q *models.QuestionDetail) string {
+	if q.TranslatedContent != "" {
+		return q.TranslatedContent
+	}
+	return q.Content
+}
 
 // Generate 生成题目文件到指定目录
 // q: 题目详情
@@ -38,6 +47,19 @@ func Generate(q *models.QuestionDetail, outputDir string) error {
 
 	// 4. 拼接完整文件内容
 	// 这里我们预留位置给后续的注释和 package 声明
+	// 选择语言内容
+	descHTML := q.Content
+	if q.TranslatedContent != "" {
+		descHTML = q.TranslatedContent
+	}
+
+	// 转换为纯文本
+	descText := htmlToText(descHTML)
+
+	// 将文本每一行前面加 "// " 变成注释
+	descComment := formatComment(descText)
+
+	// 拼接完整文件内容
 	fileContent := fmt.Sprintf(`package main
 
 import "fmt"
@@ -46,10 +68,12 @@ import "fmt"
  * ID: %s
  * Title: %s
  * Difficulty: %s
+ *
+%s
  */
 
 %s
-`, q.QuestionFrontendID, q.Title, q.Difficulty, code)
+`, q.QuestionFrontendID, q.Title, q.Difficulty, descComment, code)
 
 	// 5. 检查文件是否已存在 (防止误覆盖)
 	if _, err := os.Stat(fullPath); err == nil {
@@ -59,4 +83,12 @@ import "fmt"
 	// 6. 写入文件
 	fmt.Printf("Generating file: %s\n", fullPath)
 	return os.WriteFile(fullPath, []byte(fileContent), 0644)
+}
+
+func formatComment(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = " * " + line
+	}
+	return strings.Join(lines, "\n")
 }
