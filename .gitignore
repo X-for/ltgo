@@ -28,4 +28,4 @@ go.work
 Thumbs.db
 
 # Project specific binaries
-ltgo
+/ltgo
