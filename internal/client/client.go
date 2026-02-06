@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"time"
@@ -65,4 +66,40 @@ func (c *Client) enhanceRequest(req *http.Request) {
 		req.Header.Set("Cookie", c.cfg.Cookie)
 	}
 	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+}
+
+// 在 import 里添加 "encoding/json"
+
+// GraphQLPayload 发送给服务器的请求体结构
+type GraphQLPayload struct {
+	Query     string      `json:"query"`
+	Variables interface{} `json:"variables"`
+}
+
+// GraphQL 发送 GraphQL 请求并解析结果到 target
+func (c *Client) GraphQL(query string, variables interface{}, target interface{}) error {
+	// 1. 构造请求体
+	payload := GraphQLPayload{
+		Query:     query,
+		Variables: variables,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	// 2. 发送 POST 请求 (注意：GraphQL 的 Endpoint 通常是 /graphql)
+	// 如果是 .cn 站点，可能是 /graphql/
+	respBody, err := c.Post("/graphql", body)
+	if err != nil {
+		return err
+	}
+
+	// 3. 解析响应
+	if err := json.Unmarshal(respBody, target); err != nil {
+		return err
+	}
+
+	return nil
 }
