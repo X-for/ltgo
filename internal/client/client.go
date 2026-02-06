@@ -3,31 +3,35 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
-	"fmt"
 
 	"github.com/X-for/ltgo/internal/config"
 )
 
 type Client struct {
-	http    *http.Client
-	cfg     *config.Config
-	BaseURL string
+	http     *http.Client
+	cfg      *config.Config
+	BaseURL  string
+	EndPoint string
 }
 
 func New(cfg *config.Config) *Client {
 	baseURL := "https://leetcode.com"
+	endpoint := "https://leetcode.com/graphql"
 	if cfg.Site == "cn" {
 		baseURL = "https://leetcode.cn"
+		endpoint = "https://leetcode.cn/graphql/"
 	}
 	return &Client{
 		http: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		cfg:     cfg,
-		BaseURL: baseURL,
+		cfg:      cfg,
+		BaseURL:  baseURL,
+		EndPoint: endpoint,
 	}
 }
 
@@ -66,6 +70,7 @@ func (c *Client) enhanceRequest(req *http.Request) {
 	if c.cfg.Cookie != "" {
 		req.Header.Set("Cookie", c.cfg.Cookie)
 	}
+	req.Header.Set("Referer", c.BaseURL+"/problemset/all/")
 	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
 }
 
