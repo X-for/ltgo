@@ -9,7 +9,7 @@ import (
 func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, error) {
 	query := `
     query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
-        problemsetQuestionList: questionList(
+        problemsetQuestionList(
             categorySlug: $categorySlug
             limit: $limit
             skip: $skip
@@ -28,7 +28,7 @@ func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, er
     }`
 
 	vars := map[string]interface{}{
-		"categorySlug": "",
+		"categorySlug": "", // 或者 "all-code-essentials"
 		"skip":         skip,
 		"limit":        limit,
 		"filters":      map[string]interface{}{},
@@ -45,19 +45,21 @@ func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, er
 // GetQuestionDetail 获取单题详情 (描述 + 代码模板)
 func (c *Client) GetQuestionDetail(titleSlug string) (*models.QuestionDetail, error) {
 	query := `
-    query questionData($titleSlug: String!) {
-        question(titleSlug: $titleSlug) {
-            questionFrontendId
-            title
-            titleSlug
-            content
-            translatedContent
-            difficulty
-            sampleTestCase
-            codeSnippets {
-                lang
-                langSlug
-                code
+    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+        problemsetQuestionList(
+            categorySlug: $categorySlug
+            limit: $limit
+            skip: $skip
+            filters: $filters
+        ) {
+            total
+            questions {
+                questionFrontendId
+                title
+                titleSlug
+                difficulty
+                status
+                isPaidOnly
             }
         }
     }`
