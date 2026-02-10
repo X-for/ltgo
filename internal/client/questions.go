@@ -199,6 +199,9 @@ func (c *Client) SearchQuestions(opts SearchOptions) ([]models.Question, error) 
 	if opts.Tag != "" {
 		filters["topicFilter"].(map[string]interface{})["topicSlugs"] = []string{opts.Tag}
 	}
+	if opts.Keyword == "" {
+		opts.Keyword = opts.FrontendID
+	}
 
 	vars := map[string]interface{}{
 		"skip":          0,
