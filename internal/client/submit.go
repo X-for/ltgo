@@ -39,9 +39,9 @@ type SubmitCheckResponse struct {
 }
 
 // SubmitCode 提交代码进行判题
-func (c *Client) SubmitCode(q *models.QuestionDetail, code string) (int64, error) {
+func (c *Client) SubmitCode(q *models.QuestionDetail, code string, lang string) (int64, error) {
 	payload := map[string]interface{}{
-		"lang":        "golang",
+		"lang":        lang,
 		"question_id": q.QuestionID, // ⚠️ 注意：提交通常需要 QuestionID (后端ID)，不是 FrontendID
 		"typed_code":  code,
 	}

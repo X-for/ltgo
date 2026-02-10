@@ -92,7 +92,7 @@ Generate a Go file with boilerplate code for a specific problem. You can search 
 - Keywords from the title
 
 ```bash
-ltgo gen <id-or-slug-or-keyword>
+ltgo gen  <id-or-slug-or-keyword>
 ```
 
 **Examples:**

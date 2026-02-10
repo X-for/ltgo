@@ -33,15 +33,13 @@ type CheckResponse struct {
 }
 
 // RunCode 提交运行任务
-func (c *Client) RunCode(q *models.QuestionDetail, code string) (string, error) {
+func (c *Client) RunCode(q *models.QuestionDetail, code string, lang string) (string, error) {
 	// 1. 构造请求 Payload
 	payload := map[string]interface{}{
-		"lang":        "golang",
+		"lang":        lang,
 		"question_id": q.QuestionFrontendID, // 注意：有些时候这里需要 QuestionID (后端ID)，而非 FrontendID
-		// 如果报错，我们可能需要去 QuestionDetail 里补一个 QuestionID 字段
-		// 先试 FrontendID，对于大多数题目是一样的
-		"typed_code": code,
-		"data_input": q.SampleTestCase,
+		"typed_code":  code,
+		"data_input":  q.SampleTestCase,
 	}
 
 	body, _ := json.Marshal(payload)

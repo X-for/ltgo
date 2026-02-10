@@ -7,11 +7,10 @@ import (
 )
 
 type Config struct {
-	Cookie string `json:"cookie"`
+	Cookie   string `json:"cookie"`
 	Language string `json:"language"`
-	Site string `json:"site"`
+	Site     string `json:"site"`
 }
-
 
 func getConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
@@ -22,18 +21,10 @@ func getConfigPath() (string, error) {
 }
 
 func Load() (*Config, error) {
-	path, err := getConfigPath()
-	if err != nil {
-		return nil, err
-	}
+	home, _ := os.UserHomeDir()
+	configPath := filepath.Join(home, ".ltgo", "config.json") // 保持 config.json
 
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return &Config {
-			Language: "golang",
-			Site: "cn",
-		}, nil
-	}
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +33,12 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
+	// 设置默认语言 (兼容旧配置文件)
+	if cfg.Language == "" {
+		cfg.Language = "golang"
+	}
+
 	return &cfg, nil
 }
 

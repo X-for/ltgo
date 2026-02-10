@@ -32,18 +32,42 @@ func startRun(filePath string) {
 		return
 	}
 
-	// 2. 从文件名提取 Slug
-	// 假设文件名格式是 "0001_two-sum.go"
-	// 我们取中间部分 "two-sum"
-	filename := filepath.Base(filePath)
-	parts := strings.Split(filename, "_")
-	if len(parts) < 2 {
-		fmt.Println("Invalid filename format. Expected: ID_slug.go")
-		return
+	// 2. 尝试解析 Slug
+	var slug string
+	// 先尝试从文件元数据里读
+	metaSlug, err := generator.ParseSlugFromMeta(filePath)
+	if err == nil && metaSlug != "" {
+		slug = metaSlug
+		// fmt.Printf("Found slug from metadata: %s\n", slug)
+	} else {
+		// 读不到(旧文件)则回退到文件名解析
+		filename := filepath.Base(filePath)
+		parts := strings.Split(filename, "_")
+		if len(parts) >= 2 {
+			slugWithExt := parts[1]
+			slug = strings.TrimSuffix(slugWithExt, ".go")
+		} else {
+			fmt.Println("Could not parse slug from metadata or filename (expected ID_slug.go).")
+			return
+		}
 	}
-	// 去掉 .go 后缀
-	slugWithExt := parts[1] // "two-sum.go"
-	slug := strings.TrimSuffix(slugWithExt, ".go")
+
+	// 获取编码语言
+	lang, err := generator.ParseLangFromMeta(filePath)
+	if err != nil || lang == "" {
+		// 如果没找到元数据，尝试根据后缀推断 (兼容旧文件或手写文件)
+		ext := strings.TrimPrefix(filepath.Ext(filePath), ".")
+		// 简单的反向查找
+		for k, v := range generator.SupportedLangs {
+			if v.Extension == ext {
+				lang = k
+				break
+			}
+		}
+		if lang == "" {
+			lang = "golang" // 最后的保底
+		}
+	}
 
 	// 3. 读取代码
 	code, err := generator.ReadSolution(filePath)
@@ -69,8 +93,8 @@ func startRun(filePath string) {
 	}
 
 	// 6. 提交运行
-	fmt.Println("🚀 Sending code to LeetCode...")
-	interpretID, err := c.RunCode(q, code)
+	fmt.Printf("🚀 Sending code (%s) to LeetCode...\n", lang)
+	interpretID, err := c.RunCode(q, code, lang)
 	if err != nil {
 		fmt.Printf("Failed to submit run: %v\n", err)
 		return

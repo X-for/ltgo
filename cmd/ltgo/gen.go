@@ -121,7 +121,7 @@ func runGen(keyword string) {
 	cwd, _ := os.Getwd()
 	outputDir := fmt.Sprintf("%s/questions", cwd)
 
-	if err := generator.Generate(detail, outputDir); err != nil {
+	if err := generator.Generate(detail, outputDir, cfg.Site, cfg.Language); err != nil {
 		fmt.Printf("Failed to generate: %v\n", err)
 		return
 	}
