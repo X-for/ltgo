@@ -11,9 +11,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	listPage  int
+	listLimit int
+)
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List questions",
+	Long:  `List questions with pagination. Default: page 1, 50 questions per page.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runList()
 	},
@@ -21,6 +27,8 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+	listCmd.Flags().IntVarP(&listPage, "page", "p", 1, "Page number")
+	listCmd.Flags().IntVarP(&listLimit, "limit", "l", 50, "Questions per page")
 }
 
 func runList() {
@@ -33,15 +41,25 @@ func runList() {
 
 	c := client.New(cfg)
 
-	// 2. 获取题目 (我们先写死获取前 50 题，后面可以加 flag 控制)
+	// 2. 计算分页参数
+	if listPage < 1 {
+		listPage = 1
+	}
+	if listLimit < 1 {
+		listLimit = 50
+	}
+	skip := (listPage - 1) * listLimit
+	fmt.Printf("Fetching questions (Page %d)...\n", listPage)
+
+	// 3. 获取题目 (我们先写死获取前 50 题，后面可以加 flag 控制)
 	fmt.Println("Fetching questions...")
-	resp, err := c.GetQuestions(50, 0)
+	resp, err := c.GetQuestions(listLimit, skip)
 	if err != nil {
 		fmt.Printf("Failed to fetch questions: %v\n", err)
 		return
 	}
 
-	// 3. 格式化输出
+	// 4. 格式化输出
 	// tabwriter 可以自动对齐列
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
@@ -57,10 +75,14 @@ func runList() {
 
 	// 遍历 questions 打印
 	for _, q := range questions {
+		//fmt.Printf("DEBUG: ID=%s Status=%v\n", q.QuestionFrontendID, q.Status)
 		status := " "
 		// 状态码转换 (V2 返回的是 TO_DO / AC)
-		if q.Status == "ac" || q.Status == "AC" {
+		s := strings.ToUpper(q.Status)
+		if s == "SOLVED" || s == "AC" {
 			status = "✓"
+		} else if s == "ATTEMPTED" || s == "TRIED" {
+			status = "?" // 尝试过但没过，给个问号标记
 		}
 
 		// 难度首字母大写转换 (EASY -> Easy)
@@ -79,4 +101,5 @@ func runList() {
 	}
 
 	w.Flush()
+	fmt.Printf("\n(Show more: ltgo list -p %d)\n", listPage+1)
 }
