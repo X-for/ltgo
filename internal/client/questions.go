@@ -8,13 +8,13 @@ import (
 
 func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, error) {
 	// 专门针对 CN 的 V2 Query
+	// 删除了 filters 参数定义和传参
 	query := `
-    query problemsetQuestionListV2($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionFilterInput) {
+    query problemsetQuestionListV2($categorySlug: String, $limit: Int, $skip: Int) {
         problemsetQuestionListV2(
             categorySlug: $categorySlug
             limit: $limit
             skip: $skip
-            filters: $filters
         ) {
             questions {
                 questionFrontendId
@@ -32,7 +32,7 @@ func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, er
 		"categorySlug": "",
 		"skip":         skip,
 		"limit":        limit,
-		"filters":      map[string]interface{}{},
+		// "filters":      map[string]interface{}{},
 	}
 
 	var resp models.QuestionListResponse
