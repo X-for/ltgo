@@ -2,6 +2,7 @@ package models
 
 // Question 基础题目信息 (适配 V2)
 type Question struct {
+	QuestionID         string `json:"questionId"` // 后端 ID
 	QuestionFrontendID string `json:"questionFrontendId"`
 	Title              string `json:"title"`
 	TranslatedTitle    string `json:"translatedTitle"` // 新增: 中文标题

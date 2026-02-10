@@ -1,11 +1,27 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/X-for/ltgo/internal/models"
 )
+
+type AutoCompleteResponse struct {
+	State string `json:"state"` // "success"
+	Data  []struct {
+		QuestionID         string `json:"question_id"`
+		QuestionFrontendID string `json:"question_frontend_id"`
+		Title              string `json:"title"`
+		TitleSlug          string `json:"title_slug"`
+		Difficulty         int    `json:"difficulty"` // 注意：这个接口返回的 difficulty 是 int (1,2,3)
+		PaidOnly           bool   `json:"paid_only"`
+		IsFavor            bool   `json:"is_favor"`
+		Status             string `json:"status"` // "ac", null, etc.
+	} `json:"data"`
+}
 
 func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, error) {
 	// 专门针对 CN 的 V2 Query
@@ -105,22 +121,42 @@ func (c *Client) GetQuestionSlugByID(id string) (string, error) {
 	return "", errors.New("question ID not found in the first 3000 questions")
 }
 
-// SearchQuestions 搜索题目 (支持 ID 或 标题关键字)
+// SearchQuestions 搜索流程：先拿 ID 列表，再拿详情
 func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
-	// [修改 1] Query 中保留 $categorySlug 定义，但在 variables 中不传它
-	// 或者我们直接把 categorySlug 设为 "all-code-essentials" 也行，但不传最通用
+	// 1. 调用 REST API 获取符合条件的 Question ID 列表 (后端 ID，不是 FrontendID)
+	path := fmt.Sprintf("/problems/api/filter-questions/all/?search_keywords=%s", keyword)
+	respBody, err := c.Get(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析 ID 列表 (例如: [1, 15, 203...])
+	var questionIDs []int // 注意：这是后端 ID (QuestionID)，通常是数字
+	if err := json.Unmarshal(respBody, &questionIDs); err != nil {
+		return nil, fmt.Errorf("failed to parse search result IDs: %v", err)
+	}
+
+	if len(questionIDs) == 0 {
+		return []models.Question{}, nil
+	}
+
+	// 限制一下数量，别一次查太多，取前 20 个
+	if len(questionIDs) > 20 {
+		questionIDs = questionIDs[:20]
+	}
+
+	// 2. 构造 GraphQL 请求，批量获取这些 ID 对应的题目详情
+	// 我们使用 filters.questionIds 来精确查询
 	query := `
-    query problemsetQuestionListV2($limit: Int, $skip: Int, $filters: QuestionFilterInput, $searchKeyword: String) {
+    query problemsetQuestionListV2($filters: QuestionFilterInput, $limit: Int) {
         problemsetQuestionListV2(
-            limit: $limit
-            skip: $skip
             filters: $filters
-            searchKeyword: $searchKeyword
+            limit: $limit
         ) {
             questions {
+                questionId
                 questionFrontendId
                 title
-                translatedTitle
                 titleSlug
                 difficulty
                 status
@@ -129,26 +165,29 @@ func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
         }
     }`
 
-	// [修改 2] 构造 vars
+	// 将 []int 转换为 []string，因为 GraphQL 参数通常是字符串数组
+	var qidStrings []string
+	for _, id := range questionIDs {
+		qidStrings = append(qidStrings, fmt.Sprintf("%d", id))
+	}
+
 	vars := map[string]interface{}{
 		"limit": 20,
-		"skip":  0,
-		// "categorySlug": "", // <--- 关键！删掉这一行！不要传空字符串！
-		"searchKeyword": keyword, // CN 站点有时用这个顶层参数
 		"filters": map[string]interface{}{
-			// 为了保险，我们在 filters 里也传一下
-			"searchKeywords": keyword,
-			"search":         keyword,
+			// 这里是关键：用 questionIds 过滤器
+			"questionIds": qidStrings,
 		},
 	}
 
-	// 注意：上面的 query 字符串里我也加上了 searchKeyword: $searchKeyword
-	// 因为你的抓包里显示它用的是顶层的 searchKeyword 参数，而不是 filters 里的！
-
 	var resp models.QuestionListResponse
 	if err := c.GraphQL(query, vars, &resp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch question details: %v", err)
 	}
+
+	// 3. 排序优化 (可选)
+	// GraphQL 返回的顺序可能和我们传进去的 ID 顺序不一样 (即搜索结果的相关性顺序)
+	// 为了保持搜索的最佳匹配度，我们最好按 questionIDs 的顺序重新排一下
+	// 但为了简单，先直接返回即可。
 
 	questions := resp.Data.ProblemsetQuestionListV2.Questions
 	if len(questions) == 0 {
