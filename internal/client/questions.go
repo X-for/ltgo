@@ -138,7 +138,8 @@ func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
 		"limit":        20, // 限制返回 20 个搜索结果
 		"skip":         0,
 		"filters": map[string]interface{}{
-			"search": keyword, // 尝试传 search 参数
+			"searchKeywords": keyword, // [新增] 专门针对 CN 站点的搜索参数
+			"search":         keyword, // [保留] 兼容 Global 站点
 		},
 	}
 

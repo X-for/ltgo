@@ -41,16 +41,12 @@ func runGen(arg string) {
 
 	fmt.Printf("Searching for '%s'...\n", arg)
 
-	// 1. 尝试调用服务端搜索
+	// [修改 1] 改用服务端搜索 SearchQuestions (而不是本地 SearchQuestionsByKeyword)
 	matches, err := c.SearchQuestions(arg)
 	if err != nil {
 		fmt.Printf("Search failed: %v\n", err)
 		return
 	}
-
-	// 2. 如果没找到，或者用户输入的是纯数字 ID，我们可以尝试本地兜底
-	// (因为服务端搜索搜 ID 有时候不准)
-	// 但为了简化，我们先只用服务端结果。
 
 	if len(matches) == 0 {
 		fmt.Println("❌ No questions found.")
@@ -60,7 +56,8 @@ func runGen(arg string) {
 	var targetQ models.Question
 	foundExact := false
 
-	// 3. 智能匹配：先看有没有 ID 或 Slug 完全一样的
+	// [修改 2] 增加智能匹配逻辑
+	// 如果找到了完全匹配的 ID 或 Slug，就不用让用户选了
 	for _, q := range matches {
 		if q.QuestionFrontendID == arg || q.TitleSlug == arg {
 			targetQ = q
@@ -70,7 +67,6 @@ func runGen(arg string) {
 	}
 
 	if foundExact {
-		// 找到了精确匹配，直接开始
 		fmt.Printf("🎯 Found exact match: [%s] %s\n", targetQ.QuestionFrontendID, targetQ.Title)
 	} else if len(matches) == 1 {
 		// 只有一个模糊匹配结果，也就它了
@@ -82,7 +78,7 @@ func runGen(arg string) {
 		for _, q := range matches {
 			fmt.Printf(" - [%s] %s\n", q.QuestionFrontendID, q.Title)
 		}
-		fmt.Println("\n⚠️  Please use the exact ID or Slug to generate.")
+		fmt.Println("\n⚠️  Please refine your search or use the exact ID.")
 		return
 	}
 
