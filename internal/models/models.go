@@ -1,13 +1,15 @@
 package models
 
-// Question 列表里的简略信息
+// Question 基础题目信息 (适配 V2)
 type Question struct {
 	QuestionFrontendID string `json:"questionFrontendId"`
 	Title              string `json:"title"`
+	TranslatedTitle    string `json:"translatedTitle"` // 新增: 中文标题
 	TitleSlug          string `json:"titleSlug"`
-	Difficulty         string `json:"difficulty"`
-	Status             string `json:"status"`
-	IsPaidOnly         bool   `json:"isPaidOnly"`
+	Difficulty         string `json:"difficulty"` // "EASY", "MEDIUM", "HARD"
+	Status             string `json:"status"`     // "TO_DO", "AC", "TRIED" (可能为null)
+	PaidOnly           bool   `json:"paidOnly"`   // 注意: JSON 里是 paidOnly
+	IsPaidOnly         bool   `json:"isPaidOnly"` // 兼容旧版
 }
 
 // CodeSnippet 代码模板
@@ -29,9 +31,16 @@ type QuestionDetail struct {
 	SampleTestCase     string        `json:"sampleTestCase"`
 }
 
-// QuestionListResponse Data Wrappers 用于 GraphQL 响应解析
+// QuestionListResponse 题目列表的响应结构
 type QuestionListResponse struct {
 	Data struct {
+		// 兼容 V2
+		ProblemsetQuestionListV2 struct {
+			Total     int        `json:"total"` // 如果 V2 不返回这个，可能就是 0
+			Questions []Question `json:"questions"`
+		} `json:"problemsetQuestionListV2"`
+
+		// 保留旧版兼容 (可选)
 		ProblemsetQuestionList struct {
 			Total     int        `json:"total"`
 			Questions []Question `json:"questions"`

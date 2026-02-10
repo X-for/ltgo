@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter" // 用这个对齐输出，超好用
 
 	"github.com/X-for/ltgo/internal/client"
@@ -48,15 +49,34 @@ func runList() {
 	fmt.Fprintln(w, "Status\tID\tTitle\tDifficulty")
 	fmt.Fprintln(w, "------\t--\t-----\t----------")
 
-	for _, q := range resp.Data.ProblemsetQuestionList.Questions {
+	// 适配 V2 和旧版数据
+	questions := resp.Data.ProblemsetQuestionListV2.Questions
+	if len(questions) == 0 {
+		questions = resp.Data.ProblemsetQuestionList.Questions
+	}
+
+	// 遍历 questions 打印
+	for _, q := range questions {
 		status := " "
-		if q.Status == "ac" {
+		// 状态码转换 (V2 返回的是 TO_DO / AC)
+		if q.Status == "ac" || q.Status == "AC" {
 			status = "✓"
 		}
 
-		// 打印每一行，\t 表示换列
-		fmt.Fprintf(w, "[%s]\t%s\t%s\t%s\n", status, q.QuestionFrontendID, q.Title, q.Difficulty)
+		// 难度首字母大写转换 (EASY -> Easy)
+		diff := q.Difficulty
+		if len(diff) > 1 {
+			diff = diff[0:1] + strings.ToLower(diff[1:])
+		}
+
+		// 优先显示中文标题 (如果有)
+		title := q.Title
+		if q.TranslatedTitle != "" {
+			title = fmt.Sprintf("%s (%s)", q.TranslatedTitle, q.Title)
+		}
+
+		fmt.Fprintf(w, "[%s]\t%s\t%s\t%s\n", status, q.QuestionFrontendID, title, diff)
 	}
 
-	w.Flush() // 必须 Flush 才能输出
+	w.Flush()
 }

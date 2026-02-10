@@ -7,28 +7,29 @@ import (
 )
 
 func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, error) {
+	// 专门针对 CN 的 V2 Query
 	query := `
-    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
-        problemsetQuestionList(
+    query problemsetQuestionListV2($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionFilterInput) {
+        problemsetQuestionListV2(
             categorySlug: $categorySlug
             limit: $limit
             skip: $skip
             filters: $filters
         ) {
-            total: totalNum
-            questions: data {
+            questions {
                 questionFrontendId
                 title
+                translatedTitle
                 titleSlug
                 difficulty
                 status
-                isPaidOnly
+                paidOnly
             }
         }
     }`
 
 	vars := map[string]interface{}{
-		"categorySlug": "", // 或者 "all-code-essentials"
+		"categorySlug": "",
 		"skip":         skip,
 		"limit":        limit,
 		"filters":      map[string]interface{}{},
