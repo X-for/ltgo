@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -103,7 +102,7 @@ func (c *Client) GraphQL(query string, variables interface{}, target interface{}
 		return err
 	}
 
-	fmt.Println("DEBUG:", string(respBody))
+	//fmt.Println("DEBUG:", string(respBody))
 
 	// 3. 解析响应
 	if err := json.Unmarshal(respBody, target); err != nil {

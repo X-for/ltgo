@@ -21,6 +21,7 @@ type CodeSnippet struct {
 
 // QuestionDetail 题目详细信息
 type QuestionDetail struct {
+	QuestionID         string        `json:"questionId"`
 	QuestionFrontendID string        `json:"questionFrontendId"`
 	Title              string        `json:"title"`
 	TitleSlug          string        `json:"titleSlug"`

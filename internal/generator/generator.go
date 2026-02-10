@@ -59,6 +59,9 @@ func Generate(q *models.QuestionDetail, outputDir string) error {
 	// 将文本每一行前面加 "// " 变成注释
 	descComment := formatComment(descText)
 
+	// 在code上下加标记
+	wrappedCode := fmt.Sprintf("// @lc code=start\n%s\n// @lc code=end", code)
+
 	// 拼接完整文件内容
 	fileContent := fmt.Sprintf(`package main
 
@@ -73,7 +76,7 @@ import "fmt"
  */
 
 %s
-`, q.QuestionFrontendID, q.Title, q.Difficulty, descComment, code)
+`, q.QuestionFrontendID, q.Title, q.Difficulty, descComment, wrappedCode)
 
 	// 5. 检查文件是否已存在 (防止误覆盖)
 	if _, err := os.Stat(fullPath); err == nil {
