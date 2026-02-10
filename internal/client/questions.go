@@ -107,14 +107,15 @@ func (c *Client) GetQuestionSlugByID(id string) (string, error) {
 
 // SearchQuestions 搜索题目 (支持 ID 或 标题关键字)
 func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
-	// 构造 V2 Query，注意增加了 $searchKeyword 参数
+	// [修改 1] Query 中保留 $categorySlug 定义，但在 variables 中不传它
+	// 或者我们直接把 categorySlug 设为 "all-code-essentials" 也行，但不传最通用
 	query := `
-    query problemsetQuestionListV2($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionFilterInput) {
+    query problemsetQuestionListV2($limit: Int, $skip: Int, $filters: QuestionFilterInput, $searchKeyword: String) {
         problemsetQuestionListV2(
-            categorySlug: $categorySlug
             limit: $limit
             skip: $skip
             filters: $filters
+            searchKeyword: $searchKeyword
         ) {
             questions {
                 questionFrontendId
@@ -128,20 +129,21 @@ func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
         }
     }`
 
-	// 构造 Filters
-	// 经验证，CN V2 的搜索其实是放在 filters.searchKeywords 里的
-	// 或者 filters.search
-	// 让我们先试一种最通用的：直接在 filters 里传 search
-
+	// [修改 2] 构造 vars
 	vars := map[string]interface{}{
-		"categorySlug": "",
-		"limit":        20, // 限制返回 20 个搜索结果
-		"skip":         0,
+		"limit": 20,
+		"skip":  0,
+		// "categorySlug": "", // <--- 关键！删掉这一行！不要传空字符串！
+		"searchKeyword": keyword, // CN 站点有时用这个顶层参数
 		"filters": map[string]interface{}{
-			"searchKeywords": keyword, // [新增] 专门针对 CN 站点的搜索参数
-			"search":         keyword, // [保留] 兼容 Global 站点
+			// 为了保险，我们在 filters 里也传一下
+			"searchKeywords": keyword,
+			"search":         keyword,
 		},
 	}
+
+	// 注意：上面的 query 字符串里我也加上了 searchKeyword: $searchKeyword
+	// 因为你的抓包里显示它用的是顶层的 searchKeyword 参数，而不是 filters 里的！
 
 	var resp models.QuestionListResponse
 	if err := c.GraphQL(query, vars, &resp); err != nil {
