@@ -2,9 +2,18 @@ package client
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/X-for/ltgo/internal/models"
 )
+
+type SearchOptions struct {
+	Keyword    string
+	Difficulty string // "EASY", "MEDIUM", "HARD"
+	Status     string // "TO_DO", "SOLVED", "ATTEMPTED"
+	Tag        string // e.g. "array", "dynamic-programming"
+	FrontendID string // id of problem
+}
 
 func (c *Client) GetQuestions(limit, skip int) (*models.QuestionListResponse, error) {
 	// 专门针对 CN 的 V2 Query
@@ -103,9 +112,8 @@ func (c *Client) GetQuestionSlugByID(id string) (string, error) {
 	return "", errors.New("question ID not found in the first 3000 questions")
 }
 
-// SearchQuestions ...
 // SearchQuestions 严格复刻抓包请求
-func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
+func (c *Client) SearchQuestions(opts SearchOptions) ([]models.Question, error) {
 	query := `
     query problemsetQuestionListV2($filters: QuestionFilterInput, $limit: Int, $searchKeyword: String, $skip: Int, $sortBy: QuestionSortByInput, $categorySlug: String) {
       problemsetQuestionListV2(
@@ -134,60 +142,74 @@ func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
 	if c.cfg.Site != "cn" {
 		category = ""
 	}
+	// 构造 Filters
+	filters := map[string]interface{}{
+		"filterCombineType":   "ALL",
+		"acceptanceFilter":    map[string]interface{}{},
+		"frequencyFilter":     map[string]interface{}{},
+		"frontendIdFilter":    map[string]interface{}{},
+		"lastSubmittedFilter": map[string]interface{}{},
+		"publishedFilter":     map[string]interface{}{},
+		"companyFilter": map[string]interface{}{
+			"companySlugs": []string{},
+			"operator":     "IS",
+		},
+		"positionFilter": map[string]interface{}{
+			"positionSlugs": []string{},
+			"operator":      "IS",
+		},
+		"positionLevelFilter": map[string]interface{}{
+			"positionLevelSlugs": []string{},
+			"operator":           "IS",
+		},
+		"contestPointFilter": map[string]interface{}{
+			"contestPoints": []string{},
+			"operator":      "IS",
+		},
+		"premiumFilter": map[string]interface{}{
+			"premiumStatus": []string{},
+			"operator":      "IS",
+		},
+		// 下面是动态填充的部分
+		"difficultyFilter": map[string]interface{}{
+			"difficulties": []string{},
+			"operator":     "IS",
+		},
+		"statusFilter": map[string]interface{}{
+			"questionStatuses": []string{},
+			"operator":         "IS",
+		},
+		"languageFilter": map[string]interface{}{
+			"languageSlugs": []string{},
+			"operator":      "IS",
+		},
+		"topicFilter": map[string]interface{}{
+			"topicSlugs": []string{},
+			"operator":   "IS",
+		},
+	}
+
+	// 填充动态过滤条件
+	if opts.Difficulty != "" {
+		filters["difficultyFilter"].(map[string]interface{})["difficulties"] = []string{strings.ToUpper(opts.Difficulty)}
+	}
+	if opts.Status != "" {
+		filters["statusFilter"].(map[string]interface{})["questionStatuses"] = []string{strings.ToUpper(opts.Status)}
+	}
+	if opts.Tag != "" {
+		filters["topicFilter"].(map[string]interface{})["topicSlugs"] = []string{opts.Tag}
+	}
 
 	vars := map[string]interface{}{
 		"skip":          0,
-		"limit":         20, // 抓包是100，我们这里改小点也可以，或者你改成100也行
+		"limit":         20,
 		"categorySlug":  category,
-		"searchKeyword": keyword,
+		"searchKeyword": opts.Keyword,
 		"sortBy": map[string]interface{}{
 			"sortField": "CUSTOM",
 			"sortOrder": "ASCENDING",
 		},
-		"filters": map[string]interface{}{
-			"filterCombineType": "ALL",
-			"statusFilter": map[string]interface{}{
-				"questionStatuses": []string{},
-				"operator":         "IS",
-			},
-			"difficultyFilter": map[string]interface{}{
-				"difficulties": []string{},
-				"operator":     "IS",
-			},
-			"languageFilter": map[string]interface{}{
-				"languageSlugs": []string{},
-				"operator":      "IS",
-			},
-			"topicFilter": map[string]interface{}{
-				"topicSlugs": []string{},
-				"operator":   "IS",
-			},
-			"acceptanceFilter":    map[string]interface{}{},
-			"frequencyFilter":     map[string]interface{}{},
-			"frontendIdFilter":    map[string]interface{}{},
-			"lastSubmittedFilter": map[string]interface{}{},
-			"publishedFilter":     map[string]interface{}{},
-			"companyFilter": map[string]interface{}{
-				"companySlugs": []string{},
-				"operator":     "IS",
-			},
-			"positionFilter": map[string]interface{}{
-				"positionSlugs": []string{},
-				"operator":      "IS",
-			},
-			"positionLevelFilter": map[string]interface{}{
-				"positionLevelSlugs": []string{},
-				"operator":           "IS",
-			},
-			"contestPointFilter": map[string]interface{}{
-				"contestPoints": []string{},
-				"operator":      "IS",
-			},
-			"premiumFilter": map[string]interface{}{
-				"premiumStatus": []string{},
-				"operator":      "IS",
-			},
-		},
+		"filters": filters,
 	}
 
 	var resp models.QuestionListResponse
@@ -198,6 +220,20 @@ func (c *Client) SearchQuestions(keyword string) ([]models.Question, error) {
 	questions := resp.Data.ProblemsetQuestionListV2.Questions
 	if len(questions) == 0 {
 		questions = resp.Data.ProblemsetQuestionList.Questions
+	}
+	// [新增] 客户端精确过滤 ID
+	if opts.FrontendID != "" {
+		var exactMatch []models.Question
+		for _, q := range questions {
+			if q.QuestionFrontendID == opts.FrontendID {
+				exactMatch = append(exactMatch, q)
+				break // 找到一个就够了，ID 是唯一的
+			}
+		}
+		// 如果找到了，就只返回这一条
+		// 如果没找到（可能是 filters 已经过滤太狠了，或者是翻页问题），那就返回空，或者返回原始列表（取决于策略）
+		// 这里我们选择：如果找到了就精确返回；没找到就返回空（因为用户明确要求了 ID）
+		return exactMatch, nil
 	}
 
 	return questions, nil

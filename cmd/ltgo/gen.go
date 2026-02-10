@@ -12,26 +12,45 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func isNumeric(s string) bool {
-	match, _ := regexp.MatchString(`^\d+$`, s)
-	return match
-}
+var (
+	difficulty string
+	status     string
+	tag        string
+	id         string
+)
 
 var genCmd = &cobra.Command{
-	Use:   "gen [slug]",
+	Use:   "gen [keyword]", // 改一下 usage 提示
 	Short: "Generate a question file",
-	Long:  `Generate a Go file for a specific question. Example: ltgo gen two-sum`,
-	Args:  cobra.ExactArgs(1), // 必须接受 1 个参数
+	Long: `Generate a Go file for a specific question.
+Example: 
+  ltgo gen two-sum
+  ltgo gen sum --difficulty=Hard
+  ltgo gen --tag=dp --status=todo (列出没做的 DP 题)`,
+	Args: cobra.MaximumNArgs(1), // 允许不传 keyword，只要有 flag
 	Run: func(cmd *cobra.Command, args []string) {
-		runGen(args[0])
+		keyword := ""
+		if len(args) > 0 {
+			keyword = args[0]
+		}
+		runGen(keyword)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(genCmd)
+	genCmd.Flags().StringVarP(&difficulty, "difficulty", "d", "", "Difficulty (Easy, Medium, Hard)")
+	genCmd.Flags().StringVarP(&status, "status", "s", "", "Status (todo, solved, attempted)")
+	genCmd.Flags().StringVarP(&tag, "tag", "t", "", "Topic Tag (e.g. array, dp)")
+	genCmd.Flags().StringVarP(&id, "id", "i", "", "Search by exact Frontend ID")
 }
 
-func runGen(arg string) {
+func isNumeric(s string) bool {
+	match, _ := regexp.MatchString(`^\d+$`, s)
+	return match
+}
+
+func runGen(keyword string) {
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Println("Please run 'ltgo init' first.")
@@ -39,10 +58,19 @@ func runGen(arg string) {
 	}
 	c := client.New(cfg)
 
-	fmt.Printf("Searching for '%s'...\n", arg)
+	fmt.Printf("Searching for '%s'...\n", keyword)
 
 	// [修改 1] 改用服务端搜索 SearchQuestions (而不是本地 SearchQuestionsByKeyword)
-	matches, err := c.SearchQuestions(arg)
+	// 新代码：先构造 Options 结构体
+	opts := client.SearchOptions{
+		Keyword:    keyword,    // 这里的 keyword 就是原来的 arg
+		Difficulty: difficulty, // 需要在 gen.go 里定义这些 flag 变量
+		Status:     status,
+		Tag:        tag,
+		FrontendID: id,
+	}
+	matches, err := c.SearchQuestions(opts)
+
 	if err != nil {
 		fmt.Printf("Search failed: %v\n", err)
 		return
@@ -59,7 +87,7 @@ func runGen(arg string) {
 	// [修改 2] 增加智能匹配逻辑
 	// 如果找到了完全匹配的 ID 或 Slug，就不用让用户选了
 	for _, q := range matches {
-		if q.QuestionFrontendID == arg || q.TitleSlug == arg {
+		if q.QuestionFrontendID == keyword || q.TitleSlug == keyword {
 			targetQ = q
 			foundExact = true
 			break
