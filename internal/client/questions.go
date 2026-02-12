@@ -242,37 +242,59 @@ func (c *Client) SearchQuestions(opts SearchOptions) ([]models.Question, error) 
 	return questions, nil
 }
 
-// SearchQuestionsByKeyword 在本地过滤题目
-//func (c *Client) SearchQuestionsByKeyword(keyword string) ([]models.Question, error) {
-//	// 1. 获取所有题目 (或者前 3000 个)
-//	// 实际上大多数人不需要这么全，我们可以先取 2000
-//	all, err := c.GetQuestions(2000, 0)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	questions := all.Data.ProblemsetQuestionListV2.Questions
-//	if len(questions) == 0 {
-//		questions = all.Data.ProblemsetQuestionList.Questions
-//	}
-//
-//	// 2. 内存过滤
-//	var matched []models.Question
-//	keyword = strings.ToLower(keyword)
-//
-//	for _, q := range questions {
-//		// 匹配 ID (精确匹配)
-//		if q.QuestionFrontendID == keyword {
-//			// 如果 ID 完全匹配，直接返回这一个
-//			return []models.Question{q}, nil
-//		}
-//
-//		// 匹配 Title 或 Slug (模糊匹配)
-//		if strings.Contains(strings.ToLower(q.Title), keyword) ||
-//			strings.Contains(strings.ToLower(q.TitleSlug), keyword) {
-//			matched = append(matched, q)
-//		}
-//	}
-//
-//	return matched, nil
-//}
+// GetDailyQuestion 获取每日一题
+func (c *Client) GetDailyQuestion() (*models.Question, error) {
+	var query string
+	if c.cfg.Site == "cn" {
+		query = `
+		query questionOfToday {
+			todayRecord {
+				question {
+					questionFrontendId
+					titleSlug
+					title
+					translatedTitle
+					difficulty
+					status
+					paidOnly
+				}
+			}
+		}`
+	} else {
+		query = `
+		query questionOfToday {
+			activeDailyCodingChallengeQuestion {
+				question {
+					questionFrontendId
+					titleSlug
+					title
+					difficulty
+					status
+					paidOnly
+				}
+			}
+		}`
+	}
+
+	var resp models.DailyQuestionResponse
+	// 每日一题不需要变量
+	if err := c.GraphQL(query, nil, &resp); err != nil {
+		return nil, err
+	}
+
+	var q models.Question
+
+	if c.cfg.Site == "cn" {
+		if len(resp.Data.TodayRecord) == 0 {
+			return nil, errors.New("no daily question found (CN)")
+		}
+		q = resp.Data.TodayRecord[0].Question
+	} else {
+		q = resp.Data.ActiveDailyCodingChallengeQuestion.Question
+		if q.TitleSlug == "" {
+			return nil, errors.New("no daily question found (COM)")
+		}
+	}
+
+	return &q, nil
+}

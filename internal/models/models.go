@@ -55,3 +55,18 @@ type QuestionDetailResponse struct {
 		Question QuestionDetail `json:"question"`
 	} `json:"data"`
 }
+
+// DailyQuestionResponse 每日一题响应
+type DailyQuestionResponse struct {
+	Data struct {
+		// CN: 返回的是一个数组
+		TodayRecord []struct {
+			Question Question `json:"question"`
+		} `json:"todayRecord"`
+
+		// COM: 返回的是一个对象
+		ActiveDailyCodingChallengeQuestion struct {
+			Question Question `json:"question"`
+		} `json:"activeDailyCodingChallengeQuestion"`
+	} `json:"data"`
+}
