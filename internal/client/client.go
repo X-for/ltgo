@@ -3,8 +3,10 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/X-for/ltgo/internal/config"
@@ -65,13 +67,45 @@ func (c *Client) Post(path string, body []byte) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// enhanceRequest 增强请求头，伪装成浏览器以绕过 Cloudflare
 func (c *Client) enhanceRequest(req *http.Request) {
 	if c.cfg.Cookie != "" {
 		req.Header.Set("Cookie", c.cfg.Cookie)
 	}
-	req.Header.Set("Referer", c.BaseURL)
+
+	// 基础 Header
 	req.Header.Set("Origin", c.BaseURL)
-	req.Header.Set("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+	req.Header.Set("Referer", c.BaseURL+"/")
+
+	// 浏览器指纹 Header (模仿 Chrome 122)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+
+	// Sec-CH-UA 系列 (重要)
+	req.Header.Set("Sec-Ch-Ua", `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`)
+	req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
+	req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+
+	// 尝试提取并设置 x-csrftoken (CN 站必需)
+	if csrftoken := extractCSRF(c.cfg.Cookie); csrftoken != "" {
+		req.Header.Set("x-csrftoken", csrftoken)
+	}
+}
+
+// extractCSRF 从 Cookie 字符串中提取 csrftoken
+func extractCSRF(cookie string) string {
+	parts := strings.Split(cookie, ";")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "csrftoken=") {
+			return strings.TrimPrefix(part, "csrftoken=")
+		}
+	}
+	return ""
 }
 
 // 在 import 里添加 "encoding/json"
@@ -102,11 +136,16 @@ func (c *Client) GraphQL(query string, variables interface{}, target interface{}
 		return err
 	}
 
-	//fmt.Println("DEBUG:", string(respBody))
+	fmt.Println("DEBUG:", string(respBody))
 
 	// 3. 解析响应
 	if err := json.Unmarshal(respBody, target); err != nil {
-		return err
+		// [新增] 只有出错时才打印 Body 前 200 个字符，防止刷屏
+		preview := string(respBody)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return fmt.Errorf("json parse error: %v, response preview: %s", err, preview)
 	}
 
 	return nil

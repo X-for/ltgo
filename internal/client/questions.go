@@ -256,7 +256,6 @@ func (c *Client) GetDailyQuestion() (*models.Question, error) {
 					translatedTitle
 					difficulty
 					status
-					paidOnly
 				}
 			}
 		}`
